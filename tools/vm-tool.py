@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # @lint-avoid-python-3-compatibility-imports
 #
 # vmtool    Calculates vCPU usage for each VM on system periodically
@@ -14,6 +15,7 @@
 
 from __future__ import print_function
 from bcc import BPF
+import os
 
 # load BPF program
 b = BPF(text="""
@@ -103,8 +105,45 @@ TRACEPOINT_PROBE(sched, sched_switch) {
 };
 """)
 
-# header
-print("%-18s %-16s %-6s %-6s %s" % ("TIME(s)", "COMM", "CPU", "PID", "MESSAGE"))
+reference_vms = [
+    {"id": "node_vm_1", "vcpus": [
+        {"id": "vCPU0", "consumption": 35},
+        {"id": "vCPU1", "consumption": 42}
+    ]},
+    {"id": "node_vm_2", "vcpus": [
+        {"id": "vCPU0", "consumption": 35},
+        {"id": "vCPU1", "consumption": 46},
+        {"id": "vCPU2", "consumption": 22}
+    ]},
+    {"id": "node_vm_3", "vcpus": [
+        {"id": "vCPU0", "consumption": 3}
+    ]}
+]
+
+def print_table(vms):
+    print("")
+    print("    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("    %-18s %-8s %s" % ("VM", "VCPU", "USE"))
+    print("    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    for i, vm in enumerate(vms):
+        if i != 0:
+            print("    ───────────────────────────────")
+        if vm["vcpus"] is {}:
+            print("    ERROR: Malformed data")
+            print("    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        else:
+            vmid = vm["id"]
+            for idx, vcpu in enumerate(vm["vcpus"]):
+                if idx == 0:
+                    print("    %-18s %-8s %s" % (vmid, vcpu["id"], vcpu["consumption"]))
+                else:
+                    print("    %-18s %-8s %s" % ("", vcpu["id"], vcpu["consumption"]))
+
+    print("    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+
+os.system('clear')
+print_table(reference_vms)
 
 # format output
 while 1:
@@ -112,5 +151,5 @@ while 1:
         (task, pid, cpu, flags, ts, msg) = b.trace_fields()
     except ValueError:
         continue
-    print("%-18.9f %-16s %-6d %-6d %s" % (ts, task, cpu, pid, msg))
+    # print("%-18.9f %-16s %-6d %-6d %s" % (ts, task, cpu, pid, msg))
 
